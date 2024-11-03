@@ -1,0 +1,424 @@
+---
+title: "Proyecto contingencias II"
+author: "Félix Madrigal Mora"
+date: "2024-10-23"
+output: html_document
+---
+# Definir función de fuerzas de transición
+```{r}
+library(readxl)
+#parametros para los mu de hombres
+Mortalidad.H <- read_excel("Mortalidad.xlsx", sheet = 1)
+Recuperacion.H <- read_excel("Recuperacion.xlsx", sheet = 1)
+Transicion.H <- read_excel("Transicion.xlsx", sheet = 1)
+
+#parametro para los mu de mujeres
+Mortalidad.M <- read_excel("Mortalidad.xlsx", sheet = 2)
+Recuperacion.M <- read_excel("Recuperacion.xlsx", sheet = 2)
+Transicion.M <- read_excel("Transicion.xlsx", sheet = 2)
+```
+
+```{r}
+#vamos a guardar en listas los parametros para luego solo llamar la funcion
+#recorremos desde la columna dos ya que la primera son los parametros y lo que queremos es recorrer las fuerzas de transicion
+params.transicion.H <- lapply(2:ncol(Transicion.H), function(col) {
+  list(
+    A = as.numeric(Transicion.H[Transicion.H$Parametros == "A", col]),
+    B = as.numeric(Transicion.H[Transicion.H$Parametros == "B", col]),
+    c = as.numeric(Transicion.H[Transicion.H$Parametros == "c", col]),
+    D = as.numeric(Transicion.H[Transicion.H$Parametros == "D", col]),
+    K = as.numeric(Transicion.H[Transicion.H$Parametros == "K", col]),
+    H = as.numeric(Transicion.H[Transicion.H$Parametros == "H", col]),
+    alpha1 = as.numeric(Transicion.H[Transicion.H$Parametros == "a1", col]),
+    alpha2 = as.numeric(Transicion.H[Transicion.H$Parametros == "a2", col]),
+    alpha3 = as.numeric(Transicion.H[Transicion.H$Parametros == "a3", col]),
+    alpha4 = as.numeric(Transicion.H[Transicion.H$Parametros == "a4", col]),
+    alpha5 = as.numeric(Transicion.H[Transicion.H$Parametros == "a5", col]),
+    alpha6 = as.numeric(Transicion.H[Transicion.H$Parametros == "a6", col])
+  )
+    #alpha = Transicion.H[Transicion.H$Parametros %in% c("a1", "a2", "a3", "a4", "a5", "a6"), col]
+})
+names(params.transicion.H) <- names(Transicion.H)[-1]
+
+```
+
+```{r}
+params.recuperacion.H <- lapply(2:ncol(Recuperacion.H), function(col) {
+  list(
+    beta1 = as.numeric(Recuperacion.H[Recuperacion.H$Parametros == "B1", col]),
+    beta2 = as.numeric(Recuperacion.H[Recuperacion.H$Parametros == "B2", col]),
+    beta3 = as.numeric(Recuperacion.H[Recuperacion.H$Parametros == "B3", col]
+  ))
+})
+names(params.recuperacion.H) <- names(Recuperacion.H)[-1]
+```
+
+```{r}
+params.mortalidad.H <- lapply(2:ncol(Mortalidad.H), function(col) {
+  list(
+    gamma1 = as.numeric(Mortalidad.H[Mortalidad.H$Parametros == "y1", col]),
+    gamma2 = as.numeric(Mortalidad.H[Mortalidad.H$Parametros == "y2", col]),
+    gamma3 = as.numeric(Mortalidad.H[Mortalidad.H$Parametros == "y3", col]),
+    gamma4 = as.numeric(Mortalidad.H[Mortalidad.H$Parametros == "y4", col])
+  )
+})
+names(params.mortalidad.H) <- names(Mortalidad.H)[-1]
+```
+
+```{r}
+params.transicion.M <- lapply(2:ncol(Transicion.M), function(col) {
+  list(
+    A = as.numeric(Transicion.M[Transicion.M$Parametros == "A", col]),
+    B = as.numeric(Transicion.M[Transicion.M$Parametros == "B", col]),
+    c = as.numeric(Transicion.M[Transicion.M$Parametros == "c", col]),
+    D = as.numeric(Transicion.M[Transicion.M$Parametros == "D", col]),
+    K = as.numeric(Transicion.M[Transicion.M$Parametros == "K", col]),
+    H = as.numeric(Transicion.M[Transicion.M$Parametros == "H", col]),
+    alpha1 = as.numeric(Transicion.M[Transicion.M$Parametros == "a1", col]),
+    alpha2 = as.numeric(Transicion.M[Transicion.M$Parametros == "a2", col]),
+    alpha3 = as.numeric(Transicion.M[Transicion.M$Parametros == "a3", col]),
+    alpha4 = as.numeric(Transicion.M[Transicion.M$Parametros == "a4", col]),
+    alpha5 = as.numeric(Transicion.M[Transicion.M$Parametros == "a5", col]),
+    alpha6 = as.numeric(Transicion.M[Transicion.M$Parametros == "a6", col])
+  )
+})
+names(params.transicion.M) <- names(Transicion.M)[-1]
+```
+
+```{r}
+params.recuperacion.M <- lapply(2:ncol(Recuperacion.M), function(col) {
+  list(
+    beta1 = as.numeric(Recuperacion.M[Recuperacion.M$Parametros == "B1", col]),
+    beta2 = as.numeric(Recuperacion.M[Recuperacion.M$Parametros == "B2", col]),
+    beta3 = as.numeric(Recuperacion.M[Recuperacion.M$Parametros == "B3", col]
+  ))
+})
+names(params.recuperacion.M) <- names(Recuperacion.M)[-1]
+```
+
+```{r}
+params.mortalidad.M <- lapply(2:ncol(Mortalidad.M), function(col) {
+  list(
+    gamma1 = as.numeric(Mortalidad.M[Mortalidad.M$Parametros == "y1", col]),
+    gamma2 = as.numeric(Mortalidad.M[Mortalidad.M$Parametros == "y2", col]),
+    gamma3 = as.numeric(Mortalidad.M[Mortalidad.M$Parametros == "y3", col]),
+    gamma4 = as.numeric(Mortalidad.M[Mortalidad.M$Parametros == "y4", col])
+  )
+})
+names(params.mortalidad.M) <- names(Mortalidad.M)[-1]
+
+```
+
+
+```{r}
+U.H <- function(i, j, x) {
+  
+  nombre.col <- paste0("u", i, j)
+  
+  if (j == 6) {
+    
+    params <- params.mortalidad.H[[nombre.col]]
+    
+    
+    mu <- params$gamma1+ params$gamma2 *x + exp(params$gamma3 + params$gamma4 * x)
+    
+    
+  } else if (j < i) {
+    
+    if (abs(i - j) >= 2 || i == 6) {
+      
+      mu <- 0
+      
+    } else {
+      
+      params <- params.recuperacion.H[[nombre.col]]
+      
+      mu <- (params$beta1 + exp(params$beta2+ params$beta3*x)) / 
+            (1 + params$beta1+ exp(params$beta2 +params$beta3* x))
+      
+    }
+    
+  } else if (i < j) {
+    
+    params <- params.transicion.H[[nombre.col]]
+    
+    blend_point <- as.numeric(Transicion.H[Transicion.H$Parametros == "Blend Point", nombre.col])
+    
+    if (x <= blend_point) {
+      
+      mu <- (params$A + params$B*(params$c^x)) / (1 + params$D * (params$c^x) + params$K * (params$c^-x)) + params$H
+      
+    } else {
+      
+      
+      mu <- params$alpha1 * (x - blend_point)^5 +params$alpha2* (x - blend_point)^4 + params$alpha3 * (x - blend_point)^3 +
+            params$alpha4 * (x - blend_point)^2+ params$alpha5 * (x - blend_point)+ params$alpha6
+      
+    }
+  } 
+  
+  if (is.data.frame(mu)) {
+    mu<-as.numeric(mu[[1]])
+  }
+  
+  if (mu < 0){
+    mu <- 0
+  }
+  return(mu) 
+}
+```
+
+```{r}
+U.M <- function(i, j, x) {
+  
+  nombre.col <- paste0("u", i, j)
+  
+  if (j == 6) {
+    
+    params <- params.mortalidad.M[[nombre.col]]
+    
+    mu <- params$gamma1 + params$gamma2 * x + exp(params$gamma3 + params$gamma4 * x)
+    
+    
+  } else if (j < i) {
+    
+    if (abs(i - j) >= 2 || i == 6) {
+      
+      mu <- 0
+      
+    } else {
+      
+      params <- params.recuperacion.M[[nombre.col]]
+      
+      mu <- (params$beta1 + exp(params$beta2+ params$beta3*x)) / 
+            (1 + params$beta1+ exp(params$beta2 +params$beta3* x))
+      
+    }
+    
+  } else if (i < j) {
+    
+    params <- params.transicion.M[[nombre.col]]
+    
+    blend_point <- as.numeric(Transicion.M[Transicion.M$Parametros == "Blend Point", nombre.col])
+    
+    if (x <= blend_point) {
+      
+      mu <- (params$A + params$B*(params$c^x)) / (1 + params$D * (params$c^x) + params$K * (params$c^-x)) + params$H
+      
+    } else {
+      
+      
+      mu <- params$alpha1 * (x - blend_point)^5 +params$alpha2* (x - blend_point)^4 + params$alpha3 * (x - blend_point)^3 +
+            params$alpha4 * (x - blend_point)^2+ params$alpha5 * (x - blend_point)+ params$alpha6
+      
+    }
+  } 
+  
+  if (is.data.frame(mu)) {
+    mu<-as.numeric(mu[[1]])
+  }
+  
+  if (mu < 0){
+    mu <- 0
+  }
+  return(mu)
+}
+```
+
+# Constuir matrices de transición resolviendo forward-kolmogorov
+```{r}
+U.H_matrix <- function(x) {
+  matrix(c(
+    -(U.H(1, 2, x) + U.H(1, 3, x) + U.H(1, 4, x) + U.H(1, 5, x) + U.H(1, 6, x)), # Diagonal 1
+    U.H(1, 2, x), U.H(1, 3, x), U.H(1, 4, x), U.H(1, 5, x), U.H(1, 6, x),
+    
+    U.H(2, 1, x),
+    -(U.H(2, 1, x) + U.H(2, 3, x) + U.H(2, 4, x) + U.H(2, 5, x) + U.H(2, 6, x)), # Diagonal 2
+    U.H(2, 3, x), U.H(2, 4, x), U.H(2, 5, x), U.H(2, 6, x),
+    
+    U.H(3, 1, x), U.H(3, 2, x),
+    -(U.H(3, 1, x) + U.H(3, 2, x) + U.H(3, 4, x) + U.H(3, 5, x) + U.H(3, 6, x)), # Diagonal 3
+    U.H(3, 4, x), U.H(3, 5, x), U.H(3, 6, x),
+    
+    U.H(4, 1, x), U.H(4, 2, x), U.H(4, 3, x),
+    -(U.H(4, 1, x) + U.H(4, 2, x) + U.H(4, 3, x) + U.H(4, 5, x) + U.H(4, 6, x)), # Diagonal 4
+    U.H(4, 5, x), U.H(4, 6, x),
+    
+    U.H(5, 1, x), U.H(5, 2, x), U.H(5, 3, x), U.H(5, 4, x),
+    -(U.H(5, 1, x) + U.H(5, 2, x) + U.H(5, 3, x) + U.H(5, 4, x) + U.H(5, 6, x)), # Diagonal 5
+    U.H(5, 6, x),
+    
+    U.H(6, 1, x), U.H(6, 2, x), U.H(6, 3, x), U.H(6, 4, x), U.H(6, 5, x),
+    -(U.H(6, 1, x) + U.H(6, 2, x) + U.H(6, 3, x) + U.H(6, 4, x) + U.H(6, 5, x)) # Diagonal 6
+  ), nrow = 6, byrow = TRUE)
+}
+```
+
+```{r}
+U.M_matrix <- function(x) {
+  matrix(c(
+    -(U.M(1, 2, x) + U.M(1, 3, x) + U.M(1, 4, x) + U.M(1, 5, x) + U.M(1, 6, x)), # Diagonal 1
+    U.M(1, 2, x), U.M(1, 3, x), U.M(1, 4, x), U.M(1, 5, x), U.M(1, 6, x),
+    
+    U.M(2, 1, x),
+    -(U.M(2, 1, x) + U.M(2, 3, x) + U.M(2, 4, x) + U.M(2, 5, x) + U.M(2, 6, x)), # Diagonal 2
+    U.M(2, 3, x), U.M(2, 4, x), U.M(2, 5, x), U.M(2, 6, x),
+    
+    U.M(3, 1, x), U.M(3, 2, x),
+    -(U.M(3, 1, x) + U.M(3, 2, x) + U.M(3, 4, x) + U.M(3, 5, x) + U.M(3, 6, x)), # Diagonal 3
+    U.M(3, 4, x), U.M(3, 5, x), U.M(3, 6, x),
+    
+    U.M(4, 1, x), U.M(4, 2, x), U.M(4, 3, x),
+    -(U.M(4, 1, x) + U.M(4, 2, x) + U.M(4, 3, x) + U.M(4, 5, x) + U.M(4, 6, x)), # Diagonal 4
+    U.M(4, 5, x), U.M(4, 6, x),
+    
+    U.M(5, 1, x), U.M(5, 2, x), U.M(5, 3, x), U.M(5, 4, x),
+    -(U.M(5, 1, x) + U.M(5, 2, x) + U.M(5, 3, x) + U.M(5, 4, x) + U.M(5, 6, x)), # Diagonal 5
+    U.M(5, 6, x),
+    
+    U.M(6, 1, x), U.M(6, 2, x), U.M(6, 3, x), U.M(6, 4, x), U.M(6, 5, x),
+    -(U.M(6, 1, x) + U.M(6, 2, x) + U.M(6, 3, x) + U.M(6, 4, x) + U.M(6, 5, x)) # Diagonal 6
+  ), nrow = 6, byrow = TRUE)
+}
+```
+
+
+Ahí estamos construyendo la matriz: 
+$$
+\mathbf{U}(t, x) = \begin{pmatrix}
+-\sum_{j \neq 1} u_{x+t}^{1j} & u_{x+t}^{12} & u_{x+t}^{13} & \cdots \\
+u_{x+t}^{21} & -\sum_{j \neq 2} u_{x+t}^{2j} & u_{x+t}^{23} & \cdots \\
+u_{x+t}^{31} & u_{x+t}^{32} & -\sum_{j \neq 3} u_{x+t}^{3j} & \cdots \\
+\vdots & \vdots & \vdots & \ddots
+\end{pmatrix}
+$$
+Para así hacer la multiplicación P(t,x)*U(t,x) y obtener las ecuaciones forward kolmogorov, donde P es la matriz de probabilidades de transición tP^(ij)_x.
+
+Ahora, si asumimos que U no depende de t, es decir, que U es constante a lo largo del año de cada edad, tenemos la ecuación diferencial:
+$$
+
+\frac{dp(t, x)}{dt} = p(t) \cdot U(x)
+
+$$
+La solución de esta ecuación diferencial es conocida  se expresa como:
+
+$$
+P(t,x) = P(0) \cdot e^{U(x)t}
+$$
+donde:
+-P(0) es el vector de probabilidades iniciales en el tiempo  t = 0 , o sea la matriz identidad.
+- e^(U(x)* t representa la matriz exponencial de  U(X)*t , definida como:
+$$
+e^{Ut} = \sum_{n=0}^{\infty} \frac{(Ut)^n}{n!} = I + Ut + \frac{(Ut)^2}{2!} + \frac{(Ut)^3}{3!} + \cdots
+$$
+
+```{r}
+library(expm) #importamos librería para la forma exponencial de la matriz
+
+#Lista de matrices
+matrices.m <- list()
+matrices.h <- list()
+
+for (i in 1:120){
+    fuerzas.h <- U.H_matrix(i)
+    fuerzas.m <- U.M_matrix(i)
+    
+    # Calcular la matriz de transición usando la exponencial de la matriz
+    matrices.h[[i]] <- expm(fuerzas.h)
+    matrices.m[[i]] <- expm(fuerzas.m)
+    
+  }
+```
+
+
+```{r}
+# Verificar Nulos
+
+for (i in 1:120){
+    hh <- U.H_matrix(i)
+    diag(hh) <- 0
+    if (any(hh<0))
+      print(i)
+}
+```
+
+```{r}
+# Verificar Nulos
+
+for (i in 1:120){
+    hh <- matrices.h[[i]]
+    if (any(rowSums(hh)!=1))
+      print(c(i, max(abs(rowSums(hh)-1))))
+}
+```
+```{r}
+# Verificar Nulos
+
+for (i in 1:120){
+    mm <- U.M_matrix(i)
+    diag(hh) <- 0
+    if (any(hh<0))
+      print(i)
+}
+```
+
+```{r}
+# Verificar Nulos
+
+for (i in 1:120){
+    mm <- matrices.m[[i]]
+    if (any(rowSums(mm)!=1))
+      print(c(i, max(abs(rowSums(mm)-1))))
+}
+```
+
+```{r}
+
+# Lista de probabilidades
+prob.h <- vector("list", 119)
+prob.m <- vector("list", 119)
+
+# Llenar las probabilidades 
+for (i in 119:1){
+  # Listas de años de supervivencia 
+  prob.h[[i]] <- vector("list", 120 - i)
+  prob.m[[i]] <- vector("list", 120 - i)
+  for (t in 1:120-i){
+    if (t == 1){
+      prob.h[[i]][[t]] <- matrices.h[[i]]
+      prob.m[[i]][[t]] <- matrices.m[[i]]
+    } else if(t > 1) {
+      prob.h[[i]][[t]] <- prob.h[[i]][[t-1]] %*% prob.h[[i+t-1]][[1]]
+      prob.m[[i]][[t]] <- prob.m[[i]][[t-1]] %*% prob.m[[i+t-1]][[1]]
+    }
+  }
+}
+```
+
+```{r}
+# Verificar errores
+
+for (i in 1:119){
+  errores <- c()
+  for(t in 1:length(prob.h[[i]])){
+    if (any(rowSums(prob.h[[i]][[t]])!=1)){
+      errores[t] <- max(abs(rowSums(prob.h[[i]][[t]])-1)) 
+    }
+  }
+  print(c(i,max(errores)))
+}
+```
+```{r}
+# Verificar errores
+
+for (i in 1:119){
+  errores <- c()
+  for(t in 1:length(prob.m[[i]])){
+    if (any(rowSums(prob.m[[i]][[t]])!=1)){
+      errores[t] <- max(abs(rowSums(prob.m[[i]][[t]])-1)) 
+    }
+  }
+  print(c(i,max(errores)))
+}
+```
+
