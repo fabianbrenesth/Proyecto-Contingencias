@@ -422,3 +422,219 @@ for (i in 1:119){
 }
 ```
 
+# Cálculo de prima
+
+```{r}
+#Anualidades
+
+#Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
+#Asimismo, se usa 120 como edad maxima del modelo
+anualidad <- function(edad, j, probabilidades, interes, inflacion, prepagable){
+  anualidad <- 0
+  v <- 1/(1+interes)
+  aumento <- 1 + inflacion
+  for(k in 0:(120-edad-1)){
+    if (prepagable){
+      if (k == 0){
+        if(j == 0){
+          anualidad <- anualidad + 1
+        }
+      } else{
+        anualidad <- 0
+      }
+    }
+    else{ 
+      anualidad <- anualidad +( v^(k+1) * aumento^(k+1) * probabilidades[[edad]][[k+1]][1,j])
+    }
+  } 
+  return(anualidad)
+}
+# Revisar si en algun otro estado se mantiene
+
+
+
+#Seguros
+
+#Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
+#Asimismo, se usa 120 como edad maxima del modelo
+seguro <- function(edad, j, probabilidades, interes, inflacion){
+  
+  seguro <- 0
+  v <- 1/(1+interes)
+  aumento <- 1 + inflacion
+  
+  for(k in 1:(120-x-1)){
+    temp <- 0
+    
+    for(i in 1:5){
+      
+      temp <- temp + probabilidades[[edad]][[k]][1,i] *
+                     probabilidades[[(edad + k)]][[1]][i,j]
+    }
+    
+    seguro <- seguro + (v^(k+1) * aumento^k * temp)
+  }
+  
+  return(seguro)
+}
+
+```
+
+
+# Modelo estocástico 
+```{r}
+simulacion.individual <- function(edad, prob){
+  estados <- list() #Lista que guarda los estados en donde estuvo cada año
+  estado.actual <- 1
+  #simulamos 
+  while (estado.actual != 6) {
+    prob.transicion <- prob[[edad]][estado.actual,]
+    
+    particion1 <- prob.transicion[[1]]
+    particion2 <- prob.transicion[[2]] + prob.transicion[[1]]
+    particion3 <- prob.transicion[[3]] +prob.transicion[[2]] + 
+      prob.transicion[[1]]
+    particion4 <- prob.transicion[[4]] +prob.transicion[[3]] + 
+      prob.transicion[[2]] + prob.transicion[[1]]
+    particion5 <- prob.transicion[[5]] + prob.transicion[[4]]+   
+      prob.transicion[[3]] + prob.transicion[[2]] + prob.transicion[[1]] 
+   
+    #valor aleatorio
+    valor <- runif(1)
+  
+   # Vemos a donde transiciona
+    if (valor < particion1) {
+      estado.actual <- 1
+    } else if (particion1 <= valor & valor < particion2) {
+      estado.actual <- 2
+    } else if (particion2 <= valor & valor < particion3) {
+      estado.actual <- 3
+    } else if (particion3 <= valor & valor < particion4) {
+      estado.actual <- 4
+    } else if (particion4 <= valor & valor < particion5) {
+      estado.actual <- 5
+    } else {
+      estado.actual <- 6
+    }
+    
+    estados[length(estados)+1] <- estado.actual
+    edad <- edad + 1
+  }
+  
+  return(estados)
+}  
+  
+```
+
+```{r}
+simulacion.hombres <- function(hombres, primas.por.edad, gastos.primas, suma.asegurada4, suma.asegurada4, suma.asegurada6){
+  edades <- hombres$edades 
+
+  #Matriz en donde cada año representa una fila y cada persona una columna
+  matriz <- matrix(NA, nrow = 120, ncol = length(edades))
+  
+  for (i in 1:length(edades)){
+    estados <- simulacion.individual(edades[[i]], matrices.h)
+    matriz[1:length(estados), i] <- unlist(estados)
+  }
+  
+  #Para obtener cuantas personas hay en cada estado por año, contamos la cantidad de 1s, 2s,.. ,6s en cada fila 
+  cant.por.estado <- t(apply(matriz, 1, contar.1a6))
+  cant.por.estado[, 6] <- cumsum(cant.por.estado[, 6])
+  
+  
+  ingresos <- list()
+  egresos <- list()
+  for(i in length(matriz[,1])){
+    info.año.i <- contar.1a6(matriz[i,])
+    cant.por.estado[i,] <- info.año.i[conteos] #Cantidad de personas en cada estado en el año i
+    
+    #Estado 1
+    #Obtenemos edades de la gente en estado 1
+    edades1 <- edades[info.año.i[indices][1]] #MEJORA: SOLO UTILIZO EL PRIMER VECTOR, [1]
+    contar.edades <- contar.18.65(edades1)
+    
+    #Esta gente paga prima, entonces los ingresos son la prima
+    ingresos[[i]] <- sum(contar.edades * primas.por.edad)
+    
+    #Los egresos del estado 1 son por gastos ....
+    
+    #Estado 2
+    
+    #no hay ingresos ?¿
+    
+    #Egresos no hay
+    
+    
+    #Estado 5 
+    
+    egresos[[i]] <- cant.por.estado[i,5] * suma.asegurada
+      
+  }
+  
+  return(list(estados = 
+              cant.por.estado, 
+              ingresos = ingresos, 
+              egresos = egresos))
+  
+}
+
+simulacion.mujeres <- function(mujeres){
+  edades <- mujeres$edades 
+
+  #Matriz en donde cada año representa una fila y cada persona una columna
+  matriz <- matrix(NA, nrow = 120, ncol = length(edades))
+  
+  for (i in 1:length(edades)){
+    estados <- simulacion.individual(edades[[i]], matrices.m)
+    matriz[1:length(estados), i] <- unlist(estados)
+  }
+  
+  #Para obtener cuantas personas hay en cada estado por año, contamos la cantidad de 1s, 2s,.. ,6s en cada fila 
+  
+  cant.por.estado <- t(apply(matriz, 1, contar.1a6))
+  cant.por.estado[, 6] <- cumsum(cant.por.estado[, 6])
+  
+  return(cant.por.estado)
+}
+```
+
+```{r}
+#Generemos 5000 pólizas al azar, según sexo y edad.
+
+#genero aleatorio (0 = hombre, 1 = mujer)
+genero <- sample(c(0, 1), 5000, replace = TRUE)
+edades <- sample(18:65, 5000, replace = TRUE)
+
+polizas <- data.frame(edades= edades, genero= genero) 
+hombres <- polizas[polizas$genero == 0, ]
+mujeres <- polizas[polizas$genero == 1, ]
+```
+
+```{r}
+cant.simulaciones <- 100
+
+simulaciones <- list()
+
+
+for (i in 1:cant.simulaciones){
+  simulacion.h <- simulacion.hombres(hombres)
+  simulacion.m <- simulacion.mujeres(mujeres)
+  simulaciones[[i]] <- simulacion.h + simulacion.m
+  
+}
+
+#Calculamos la esperanza
+suma_matrices <- Reduce("+", simulaciones)
+esperanza.estados <- suma_matrices / length(simulaciones)
+```
+
+# Funciones auxiliares
+```{r}
+contar.1a6 <- function(fila) {
+  fila.sin.na <- na.omit(fila)
+  return(list(conteos = conteos, indices = indices))
+}
+```
+
+
