@@ -429,11 +429,11 @@ for (i in 1:119){
 
 #Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
 #Asimismo, se usa 120 como edad maxima del modelo
-anualidad <- function(edad, j, probabilidades, interes, inflacion, prepagable){
+anualidad <- function(edad, j, probabilidades, interes, inflacion, prepagable, w){
   anualidad <- 0
   v <- 1/(1+interes)
   aumento <- 1 + inflacion
-  for(k in 0:(120-edad-1)){
+  for(k in 0:(w-edad-1)){
     if (prepagable){
       if (k == 0){
         if(j == 0){
@@ -480,6 +480,44 @@ seguro <- function(edad, j, probabilidades, interes, inflacion){
 
 ```
 
+# Primas
+
+## Prima Neta
+
+```{r}
+# Sin Gastos
+# Se propone un beneficio anual en caso de que el asegurado se encuentre en el
+# estado 4 o 5 y un beneficio de muerte pagable al final del año de muerte 
+# con primas anuales mientras el asegurado se encuentre en 1 o 2
+
+prima.neta <- function(edad, probabilidades, interes, inflacion, B1, B2, B3){
+  estado4 <- B1*anualidad(edad, 4, probabilidades, interes, inflacion, TRUE, 120)
+  estado5 <- B2*anualidad(edad, 5, probabilidades, interes, inflacion, TRUE, 120)
+  estado6 <- B3*seguro(edad, 6, probabilidades, interes, inflacion)
+  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion, TRUE, 65) +
+           anualidad(edad, 2, probabilidades, interes, inflacion, TRUE, 65)
+  prima <- (estado4 + estado5 + estado6)/pagos
+  return(prima)
+}
+```
+
+## Prima Bruta
+```{r}
+# Con Gastos
+# Mismo modelo, de beneficios
+# Gastos de terminación cuando muere el asegurado
+# Gastos Iniciales (monto fijo)
+# Gastos de renovación (porcentaje fijo de las primas)
+prima.bruta <- function(edad, probabilidades, interes, inflacion, B1, B2, B3, GT, GI, GR){
+  estado4 <- B1*anualidad(edad, 4, probabilidades, interes, inflacion, TRUE, 120)
+  estado5 <- B2*anualidad(edad, 5, probabilidades, interes, inflacion, TRUE, 120)
+  estado6 <- (B3+GT)*seguro(edad, 6, probabilidades, interes, inflacion)
+  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion, TRUE, 65) +
+           anualidad(edad, 2, probabilidades, interes, inflacion, TRUE, 65)
+  prima <- (estado4 + estado5 + estado6 + GI)/((1-GR)*pagos)
+  return(prima)
+}
+```
 
 # Modelo estocástico 
 ```{r}
