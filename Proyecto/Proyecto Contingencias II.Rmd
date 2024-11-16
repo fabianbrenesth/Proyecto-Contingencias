@@ -429,50 +429,66 @@ for (i in 1:119){
 
 #Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
 #Asimismo, se usa 120 como edad maxima del modelo
-anualidad <- function(edad, j, probabilidades, interes, inflacion, prepagable, w){
-  anualidad <- 0
+anualidad <- function(edad, j, probabilidades, interes, inflacion, 
+                      temporal = TRUE){
   v <- 1/(1+interes)
   aumento <- 1 + inflacion
-  for(k in 0:(w-edad-1)){
-    if (prepagable){
-      if (k == 0){
-        if(j == 0){
-          anualidad <- anualidad + 1
-        }
-      } else{
-        anualidad <- 0
+  
+  # Se asume que es prepagable y que se emite para estado  = 1 
+  # El primer pago solo se hará si el estado destino también es 1
+    if(j == 1)
+      anualidad <- 1
+    else{
+      anualidad <- 0
+    }
+  
+  if(temporal){
+    n <- 65-edad-1 #-1 porque ya hicimos un pago arriba
+  }
+  else{
+    n <- 120-edad-1
+  }
+  
+  # Los siguientes pagos se inflan
+    for (k in 1:n){
+      if(n == 0){ 
+        break
       }
+      anualidad <- anualidad + (v^k * aumento^k * 
+                                  probabilidades[[edad]][[k]][1,j])
     }
-    else{ 
-      anualidad <- anualidad +( v^(k+1) * aumento^(k+1) * probabilidades[[edad]][[k+1]][1,j])
-    }
-  } 
   return(anualidad)
 }
-# Revisar si en algun otro estado se mantiene
-
-
 
 #Seguros
 
 #Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
+#Como solo se va a utilizar por muerte, tampoco se recibe el estado destino (siempre va a ser 6)
 #Asimismo, se usa 120 como edad maxima del modelo
-seguro <- function(edad, j, probabilidades, interes, inflacion){
-  
-  seguro <- 0
+seguro <- function(edad, probabilidades, interes, inflacion){
   v <- 1/(1+interes)
   aumento <- 1 + inflacion
   
-  for(k in 1:(120-x-1)){
+  n <- 120-edad
+  
+  
+  #Para k = 0, la única forma de que el seguro pague es que se pase a 6 en un año. 
+  seguro <- (v * aumento * probabilidades[[edad]][[1]][[1,6]])
+  
+  #Ahora iteramos desde k = 1
+  for(k in 1:(n-1)){ 
+    if((n-1) == 0){
+      break
+    }
     temp <- 0
     
     for(i in 1:5){
       
       temp <- temp + probabilidades[[edad]][[k]][1,i] *
-                     probabilidades[[(edad + k)]][[1]][i,j]
+                     probabilidades[[(edad + k)]][[1]][i,6]
     }
     
-    seguro <- seguro + (v^(k+1) * aumento^k * temp)
+    seguro <- seguro + (v^(k+1) * aumento^(k+1) * temp)
   }
   
   return(seguro)
@@ -490,12 +506,12 @@ seguro <- function(edad, j, probabilidades, interes, inflacion){
 # estado 4 o 5 y un beneficio de muerte pagable al final del año de muerte 
 # con primas anuales mientras el asegurado se encuentre en 1 o 2
 
-prima.neta <- function(edad, probabilidades, interes, inflacion, B1, B2, B3){
-  estado4 <- B1*anualidad(edad, 4, probabilidades, interes, inflacion, TRUE, 120)
-  estado5 <- B2*anualidad(edad, 5, probabilidades, interes, inflacion, TRUE, 120)
-  estado6 <- B3*seguro(edad, 6, probabilidades, interes, inflacion)
-  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion, TRUE, 65) +
-           anualidad(edad, 2, probabilidades, interes, inflacion, TRUE, 65)
+prima.neta <- function(edad, probabilidades, interes, inflacion){
+  estado4 <- 10850000*anualidad(edad, 4, probabilidades, interes, inflacion, FALSE)
+  estado5 <- 16570000*anualidad(edad, 5, probabilidades, interes, inflacion, FALSE)
+  estado6 <- 1000000*seguro(edad, 6, probabilidades, interes, inflacion)
+  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion) +
+           anualidad(edad, 2, probabilidades, interes, inflacion)
   prima <- (estado4 + estado5 + estado6)/pagos
   return(prima)
 }
@@ -508,13 +524,13 @@ prima.neta <- function(edad, probabilidades, interes, inflacion, B1, B2, B3){
 # Gastos de terminación cuando muere el asegurado
 # Gastos Iniciales (monto fijo)
 # Gastos de renovación (porcentaje fijo de las primas)
-prima.bruta <- function(edad, probabilidades, interes, inflacion, B1, B2, B3, GT, GI, GR){
-  estado4 <- B1*anualidad(edad, 4, probabilidades, interes, inflacion, TRUE, 120)
-  estado5 <- B2*anualidad(edad, 5, probabilidades, interes, inflacion, TRUE, 120)
-  estado6 <- (B3+GT)*seguro(edad, 6, probabilidades, interes, inflacion)
-  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion, TRUE, 65) +
-           anualidad(edad, 2, probabilidades, interes, inflacion, TRUE, 65)
-  prima <- (estado4 + estado5 + estado6 + GI)/((1-GR)*pagos)
+prima.bruta <- function(edad, probabilidades, interes, inflacion){
+  estado4 <- 10850000*anualidad(edad, 4, probabilidades, interes, inflacion, FALSE)
+  estado5 <- 16570000*anualidad(edad, 5, probabilidades, interes, inflacion, FALSE)
+  estado6 <- 1150000*seguro(edad, 6, probabilidades, interes, inflacion)
+  pagos <- anualidad(edad, 1, probabilidades, interes, inflacion) +
+           anualidad(edad, 2, probabilidades, interes, inflacion)
+  prima <- (estado4 + estado5 + estado6)/(0.9*pagos-0.05)
   return(prima)
 }
 ```
