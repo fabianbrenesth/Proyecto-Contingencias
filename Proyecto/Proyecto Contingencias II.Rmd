@@ -474,7 +474,7 @@ anualidad <- function(edad, j, probabilidades, interes, inflacion,
 #interés corresponde a una lista con la tasa spot de cada año, lista de tamaño 102 (120-18 = 102)
 seguro <- function(edad, probabilidades, interes, inflacion){
   
-  v <- interes[[1]]
+  v <- 1/(1+interes[[1]])
   aumento <- 1 + inflacion
   
   n <- 120-edad
@@ -684,8 +684,8 @@ simulacion.hombres <- function(hombres, primas.por.edad, suma.asegurada4, suma.a
     
     #Ajustemos beneficios por inflación
     suma.asegurada4.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
-    suma.asegurada5.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
-    suma.asegurada6.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada5.ajustado <- suma.asegurada5 * ((1.03)^(i-1))
+    suma.asegurada6.ajustado <- suma.asegurada6 * ((1.03)^(i-1))
     
     #ESTADO 1
     #-Ingresos por primas:
@@ -802,7 +802,7 @@ simulacion.mujeres <- function(mujeres, primas.por.edad, suma.asegurada4, suma.a
   
   #Primer año de egresos: 
   #-Egreso por gasto inicial y gasto de primas
-  egresos.por.estado[1,1] <- ingresos.por.estado[1, 1] *0.15
+  egresos.por.estado[1,1] <- ingresos.por.estado[1, 1] * 0.15
 
   #-Egreso por muerte 
   #ninguno: OBSERVACIÓN: como el egreso por muerte se paga al final del año, se va a considerar como un egreso del siguiente año, para facilitar la comparación de flujos. 
@@ -816,11 +816,12 @@ simulacion.mujeres <- function(mujeres, primas.por.edad, suma.asegurada4, suma.a
     
     #Primero ajustamos la prima por inflación:
     primas.por.edad.ajustado <- primas.por.edad * ((1.03)^(i-1))
+    # i-1 porque las primas se pagan al principio de cada año
     
     #Ajustemos beneficios por inflación
     suma.asegurada4.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
-    suma.asegurada5.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
-    suma.asegurada6.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada5.ajustado <- suma.asegurada5 * ((1.03)^(i-1))
+    suma.asegurada6.ajustado <- suma.asegurada6 * ((1.03)^(i-1))
     
     #ESTADO 1
     #-Ingresos por primas:
@@ -965,13 +966,14 @@ for (i in 1:cant.simulaciones){
   egresos.h <- as.numeric(simulaciones.h[[i]]$egresos)
   
   # Calcular el valor presente de ingresos y egresos
-  años <- 1:103  # Años correspondientes a los flujos
+  años <- 0:102  # Años correspondientes a los flujos
 
-  vp_ingresos.m <- ingresos.m / (1 + interes[años])^años
-  vp_egresos.m <- egresos.m / (1 + interes[años])^años
+  # Calcular los valores presentes
+  vp_ingresos.m <- ingresos.m / (1 + c(0, interes))[años + 1]^años
+  vp_egresos.m <- egresos.m / (1 + c(0, interes))[años + 1]^años
   
-  vp_ingresos.h <- ingresos.h / (1 + interes[años])^años
-  vp_egresos.h <- egresos.h / (1 + interes[años])^años
+  vp_ingresos.h <- ingresos.h / (1 + c(0, interes))[años + 1]^años
+  vp_egresos.h <- egresos.h / (1 + c(0, interes))[años + 1]^años
   
   # Diferencia entre ingresos y egresos
   vp_diferencia.m <- vp_egresos.m - vp_ingresos.m
