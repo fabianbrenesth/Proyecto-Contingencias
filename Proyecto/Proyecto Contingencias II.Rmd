@@ -351,6 +351,7 @@ for (i in 1:120){
       print(c(i, max(abs(rowSums(hh)-1))))
 }
 ```
+
 ```{r}
 # Verificar Nulos
 
@@ -429,9 +430,11 @@ for (i in 1:119){
 
 #Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
 #Asimismo, se usa 120 como edad maxima del modelo
+#interés corresponde a una lista con la tasa spot de cada año, lista de tamaño 102 (120-18 = 102)
+
 anualidad <- function(edad, j, probabilidades, interes, inflacion, 
                       temporal = TRUE){
-  v <- 1/(1+interes)
+  
   aumento <- 1 + inflacion
   
   # Se asume que es prepagable y que se emite para estado  = 1 
@@ -451,9 +454,12 @@ anualidad <- function(edad, j, probabilidades, interes, inflacion,
   
   # Los siguientes pagos se inflan
     for (k in 1:n){
-      if(n == 0){ 
+      if(n == 0 || n<0){ 
         break
       }
+      #print(k)
+      v <- 1/(1+interes[[k]])
+      
       anualidad <- anualidad + (v^k * aumento^k * 
                                   probabilidades[[edad]][[k]][1,j])
     }
@@ -465,21 +471,23 @@ anualidad <- function(edad, j, probabilidades, interes, inflacion,
 #Como solo se vende a personas sanas, no se recibe el estado actual (siempre va a ser 1)
 #Como solo se va a utilizar por muerte, tampoco se recibe el estado destino (siempre va a ser 6)
 #Asimismo, se usa 120 como edad maxima del modelo
+#interés corresponde a una lista con la tasa spot de cada año, lista de tamaño 102 (120-18 = 102)
 seguro <- function(edad, probabilidades, interes, inflacion){
-  v <- 1/(1+interes)
+  
+  v <- interes[[1]]
   aumento <- 1 + inflacion
   
   n <- 120-edad
-  
   
   #Para k = 0, la única forma de que el seguro pague es que se pase a 6 en un año. 
   seguro <- (v * aumento * probabilidades[[edad]][[1]][[1,6]])
   
   #Ahora iteramos desde k = 1
   for(k in 1:(n-1)){ 
-    if((n-1) == 0){
+    if((n-1) == 0 || (n-1)<0){
       break
     }
+    v <- 1/(1+interes[[k+1]])
     temp <- 0
     
     for(i in 1:5){
@@ -496,7 +504,6 @@ seguro <- function(edad, probabilidades, interes, inflacion){
 
 ```
 
-# Primas
 
 ## Prima Neta
 
@@ -509,7 +516,7 @@ seguro <- function(edad, probabilidades, interes, inflacion){
 prima.neta <- function(edad, probabilidades, interes, inflacion){
   estado4 <- 10850000*anualidad(edad, 4, probabilidades, interes, inflacion, FALSE)
   estado5 <- 16570000*anualidad(edad, 5, probabilidades, interes, inflacion, FALSE)
-  estado6 <- 1000000*seguro(edad, 6, probabilidades, interes, inflacion)
+  estado6 <- 1000000*seguro(edad, probabilidades, interes, inflacion)
   pagos <- anualidad(edad, 1, probabilidades, interes, inflacion) +
            anualidad(edad, 2, probabilidades, interes, inflacion)
   prima <- (estado4 + estado5 + estado6)/pagos
@@ -527,7 +534,7 @@ prima.neta <- function(edad, probabilidades, interes, inflacion){
 prima.bruta <- function(edad, probabilidades, interes, inflacion){
   estado4 <- 10850000*anualidad(edad, 4, probabilidades, interes, inflacion, FALSE)
   estado5 <- 16570000*anualidad(edad, 5, probabilidades, interes, inflacion, FALSE)
-  estado6 <- 1150000*seguro(edad, 6, probabilidades, interes, inflacion)
+  estado6 <- 1150000*seguro(edad, probabilidades, interes, inflacion)
   pagos <- anualidad(edad, 1, probabilidades, interes, inflacion) +
            anualidad(edad, 2, probabilidades, interes, inflacion)
   prima <- (estado4 + estado5 + estado6)/(0.9*pagos-0.05)
@@ -535,7 +542,57 @@ prima.bruta <- function(edad, probabilidades, interes, inflacion){
 }
 ```
 
+Calculamos la prima correspondiente para mujeres y hombres de edades 18 a 64
+```{r}
+
+#Utilizamos las tasas spot y splines lineales para los años 4, 6, 8, 9 para generar la lista de tasas de interés:
+
+interes <- c(0.04285,  # 1 años
+             0.04880,  # 2 años
+             0.05312,  # 3 años
+             0.05312 + (0.05859-0.05312)/2,  # 4 años
+             0.05859,  # 5 años 
+             0.05859 + (0.06161-0.05859)/2,# 6 años
+             0.06161,  # 7 años
+             0.06161 + (0.06395 - 0.06161)/3, # 8 años 
+             0.06161 + ((0.06395 - 0.06161)/3)*2, # 9 años
+             0.06395) # 10 años
+
+interes <- c(interes, rep(0.06395, 120)) #Asumimos curva constante a partir de 10 años
+
+primas.hombres <- sapply(18:64, function(edad) prima.bruta(edad, prob.h, interes, 0.03))
+
+primas.mujeres <- sapply(18:64, function(edad) prima.bruta(edad, prob.m, interes, 0.03))
+
+```
+
 # Modelo estocástico 
+
+## Funciones auxiliares
+```{r}
+contar.1a6 <- function(fila) {
+  fila.sin.na <- na.omit(fila)
+  conteos <- tabulate(fila.sin.na, nbins = 6)
+  indices <- lapply(1:6, function(x) which(fila.sin.na == x))
+  return(list(conteos = conteos, indices = indices))
+}
+```
+
+```{r}
+contar.18.64 <- function(fila) {
+  # Remover los NA
+  fila.sin.na <- na.omit(fila)
+  
+  # Crear un vector que cuente los valores desde 18 hasta 65
+  conteos <- tabulate(fila.sin.na - 17, nbins = 64 - 18 + 1)
+  
+  # Retornar los conteos como un vector
+  return(conteos)
+}
+
+```
+
+## Funciones simulación
 ```{r}
 simulacion.individual <- function(edad, prob){
   estados <- list() #Lista que guarda los estados en donde estuvo cada año
@@ -577,118 +634,371 @@ simulacion.individual <- function(edad, prob){
   
   return(estados)
 }  
-  
+
 ```
 
 ```{r}
-simulacion.hombres <- function(hombres, primas.por.edad, gastos.primas, suma.asegurada4, suma.asegurada4, suma.asegurada6){
+simulacion.hombres <- function(hombres, primas.por.edad, suma.asegurada4, suma.asegurada5, suma.asegurada6){
+  
   edades <- hombres$edades 
 
   #Matriz en donde cada año representa una fila y cada persona una columna
-  matriz <- matrix(NA, nrow = 120, ncol = length(edades))
+  matriz <- matrix(NA, nrow = 103, ncol = length(edades))
   
   for (i in 1:length(edades)){
     estados <- simulacion.individual(edades[[i]], matrices.h)
     matriz[1:length(estados), i] <- unlist(estados)
   }
   
-  #Para obtener cuantas personas hay en cada estado por año, contamos la cantidad de 1s, 2s,.. ,6s en cada fila 
-  cant.por.estado <- t(apply(matriz, 1, contar.1a6))
-  cant.por.estado[, 6] <- cumsum(cant.por.estado[, 6])
+  ingresos.por.estado <- matrix(0, nrow = 103, ncol = 6)
+  egresos.por.estado <- matrix(0, nrow = 103, ncol = 6)
+  cant.por.estado <- matrix(0, nrow = 103, ncol = 6)
+
   
+  info.año.i <- contar.1a6(matriz[1,]) #Información sobre estados al final de año 1
   
-  ingresos <- list()
-  egresos <- list()
-  for(i in length(matriz[,1])){
-    info.año.i <- contar.1a6(matriz[i,])
-    cant.por.estado[i,] <- info.año.i[conteos] #Cantidad de personas en cada estado en el año i
+  cant.por.estado[1,] <- info.año.i$conteos
+  
+  #Primer año de ingresos:
+  #Todos pagan prima porque se emite para sanos
+  contar.edades.principio <- contar.18.64(edades) #Contamos las edades al principio del seguro, esto devuelve una lista con la cantidad de asegurados por edad (primer índice representa 18 y así sucesivamente)
+  
+  ingresos.por.estado[1, 1] <- sum(contar.edades.principio*primas.por.edad)
+  
+  #Primer año de egresos: 
+  #-Egreso por gasto inicial y gasto de primas
+  egresos.por.estado[1,1] <- ingresos.por.estado[1, 1] *0.15
+
+  #-Egreso por muerte 
+  #ninguno: OBSERVACIÓN: como el egreso por muerte se paga al final del año, se va a considerar como un egreso del siguiente año, para facilitar la comparación de flujos. 
+  
+  #Iteramos sobre los finales de cada año. (Desde el final del año 2)
+  for(i in 2:length(matriz[,1])){
     
-    #Estado 1
-    #Obtenemos edades de la gente en estado 1
-    edades1 <- edades[info.año.i[indices][1]] #MEJORA: SOLO UTILIZO EL PRIMER VECTOR, [1]
-    contar.edades <- contar.18.65(edades1)
+    info.año.i.anterior <- info.año.i 
+    info.año.i <- contar.1a6(matriz[i,])
+    cant.por.estado[i,] <- info.año.i$conteos #Cantidad de personas en cada estado a final de año i 
+    
+    #Primero ajustamos la prima por inflación:
+    primas.por.edad.ajustado <- primas.por.edad * ((1.03)^(i-1))
+    
+    #Ajustemos beneficios por inflación
+    suma.asegurada4.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada5.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada6.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    
+    #ESTADO 1
+    #-Ingresos por primas:
+    
+    #Obtenemos edades de la gente en estado 1 al principio del año i (o sea al final de i-1)
+    #Para esto obtenemos los índices de las personas que estaban en estado uno. Usamos esos índices para obtener su respectiva edad
+    edades1.principio.año <- edades[info.año.i.anterior$indices[[1]]]
+    
+    contar.edades.principio <- contar.18.64(edades1.principio.año)
     
     #Esta gente paga prima, entonces los ingresos son la prima
-    ingresos[[i]] <- sum(contar.edades * primas.por.edad)
+    #Hay que considerar que solo pagan primas hasta 65 años (no incluido). 
+    if((65-i-17) >= 1){
+       ingresos.por.estado[i,1] <- 
+      sum((contar.edades.principio * primas.por.edad.ajustado)[1:(65-i-17)])
+       #-EGRESOS:
+      egresos.por.estado[i,1] <- 0.10 *  ingresos.por.estado[i,1]
+    }
     
-    #Los egresos del estado 1 son por gastos ....
+    #ESTADO 2:
+    #-Ingresos por primas:
     
-    #Estado 2
+    #Obtenemos edades de la gente en estado 2 al principio del año i (o sea al final de i-1)
+    edades2.principio.año <- edades[info.año.i.anterior$indices[[2]]] 
     
-    #no hay ingresos ?¿
+    contar.edades.principio <- contar.18.64(edades2.principio.año)
     
-    #Egresos no hay
+    #Esta gente paga prima, entonces los ingresos son la prima
+    #Hay que considerar que solo pagan primas hasta 65 años (no incluido). 
+    if((65-i-17) >= 1){
+       ingresos.por.estado[i,2] <- 
+      sum((contar.edades.principio * primas.por.edad.ajustado)[1:(65-i-17)])
+       
+       #-EGRESOS:
+      egresos.por.estado[i,2] <- 0.10 *  ingresos.por.estado[i,2]
+    }
     
+    #ESTADO 3
+    #Esta gente no paga prima ni recibe beneficios entonces no hay ni ingresos ni egresos
     
-    #Estado 5 
+    #ESTADO 4
     
-    egresos[[i]] <- cant.por.estado[i,5] * suma.asegurada
-      
+    #No hay ingresos
+    
+    #-Egresos: 
+    #No es necesario contar edades porque el egreso es el mismo para todos.
+    egresos.por.estado[i,4] <- 
+      info.año.i.anterior$conteos[4]*suma.asegurada4.ajustado
+    
+    #ESTADO 5
+    
+    #No hay ingresos
+    
+    #-Egresos: 
+    #No es necesario contar edades porque el egreso es el mismo para todos.
+    egresos.por.estado[i,5] <-  
+      info.año.i.anterior$conteos[5]*suma.asegurada5.ajustado
+    
+    #ESTADO 6
+    
+    #No hay ingresos
+    
+    #-Egresos: 
+    #Egresos de muertos del año pasado
+    egresos.por.estado[i,6] <- 
+      info.año.i.anterior$conteos[6]*suma.asegurada6.ajustado
+    
+    #si ya todos se murieron detenemos el ciclo for
+    if(cant.por.estado[i,6] == length(edades)){
+      break
+    }
   }
   
-  return(list(estados = 
-              cant.por.estado, 
+  cant.por.estado[, 6] <- cumsum(cant.por.estado[, 6])
+  ingresos <- as.list(rowSums(ingresos.por.estado))
+  egresos <- as.list(rowSums(egresos.por.estado))
+  
+  return(list(estados = cant.por.estado, 
               ingresos = ingresos, 
-              egresos = egresos))
+              egresos = egresos,
+              ingresos.estado = ingresos.por.estado,
+              egresos.estado = egresos.por.estado)
+         )
   
 }
 
-simulacion.mujeres <- function(mujeres){
+
+simulacion.mujeres <- function(mujeres, primas.por.edad, suma.asegurada4, suma.asegurada5, suma.asegurada6){
+  
   edades <- mujeres$edades 
 
   #Matriz en donde cada año representa una fila y cada persona una columna
-  matriz <- matrix(NA, nrow = 120, ncol = length(edades))
+  matriz <- matrix(NA, nrow = 103, ncol = length(edades))
   
   for (i in 1:length(edades)){
     estados <- simulacion.individual(edades[[i]], matrices.m)
     matriz[1:length(estados), i] <- unlist(estados)
   }
   
-  #Para obtener cuantas personas hay en cada estado por año, contamos la cantidad de 1s, 2s,.. ,6s en cada fila 
+  ingresos.por.estado <- matrix(0, nrow = 103, ncol = 6)
+  egresos.por.estado <- matrix(0, nrow = 103, ncol = 6)
+  cant.por.estado <- matrix(0, nrow = 103, ncol = 6)
+
   
-  cant.por.estado <- t(apply(matriz, 1, contar.1a6))
+  info.año.i <- contar.1a6(matriz[1,]) #Información sobre estados al final de año 1
+  
+  cant.por.estado[1,] <- info.año.i$conteos
+  
+  #Primer año de ingresos:
+  #Todos pagan prima porque se emite para sanos
+  contar.edades.principio <- contar.18.64(edades) #Contamos las edades al principio del seguro, esto devuelve una lista con la cantidad de asegurados por edad (primer índice representa 18 y así sucesivamente)
+  
+  ingresos.por.estado[1, 1] <- sum(contar.edades.principio*primas.por.edad)
+  
+  #Primer año de egresos: 
+  #-Egreso por gasto inicial y gasto de primas
+  egresos.por.estado[1,1] <- ingresos.por.estado[1, 1] *0.15
+
+  #-Egreso por muerte 
+  #ninguno: OBSERVACIÓN: como el egreso por muerte se paga al final del año, se va a considerar como un egreso del siguiente año, para facilitar la comparación de flujos. 
+  
+  #Iteramos sobre los finales de cada año. (Desde el final del año 2)
+  for(i in 2:length(matriz[,1])){
+    
+    info.año.i.anterior <- info.año.i 
+    info.año.i <- contar.1a6(matriz[i,])
+    cant.por.estado[i,] <- info.año.i$conteos #Cantidad de personas en cada estado a final de año i 
+    
+    #Primero ajustamos la prima por inflación:
+    primas.por.edad.ajustado <- primas.por.edad * ((1.03)^(i-1))
+    
+    #Ajustemos beneficios por inflación
+    suma.asegurada4.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada5.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    suma.asegurada6.ajustado <- suma.asegurada4 * ((1.03)^(i-1))
+    
+    #ESTADO 1
+    #-Ingresos por primas:
+    
+    #Obtenemos edades de la gente en estado 1 al principio del año i (o sea al final de i-1)
+    #Para esto obtenemos los índices de las personas que estaban en estado uno. Usamos esos índices para obtener su respectiva edad
+    edades1.principio.año <- edades[info.año.i.anterior$indices[[1]]]
+    
+    contar.edades.principio <- contar.18.64(edades1.principio.año)
+    
+    #Esta gente paga prima, entonces los ingresos son la prima
+    #Hay que considerar que solo pagan primas hasta 65 años (no incluido). 
+    if((65-i-17) >= 1){
+       ingresos.por.estado[i,1] <- 
+      sum((contar.edades.principio * primas.por.edad.ajustado)[1:(65-i-17)])
+       #-EGRESOS:
+      egresos.por.estado[i,1] <- 0.10 *  ingresos.por.estado[i,1]
+    }
+    
+    #ESTADO 2:
+    #-Ingresos por primas:
+    
+    #Obtenemos edades de la gente en estado 2 al principio del año i (o sea al final de i-1)
+    edades2.principio.año <- edades[info.año.i.anterior$indices[[2]]] 
+    
+    contar.edades.principio <- contar.18.64(edades2.principio.año)
+    
+    #Esta gente paga prima, entonces los ingresos son la prima
+    #Hay que considerar que solo pagan primas hasta 65 años (no incluido). 
+    if((65-i-17) >= 1){
+       ingresos.por.estado[i,2] <- 
+      sum((contar.edades.principio * primas.por.edad.ajustado)[1:(65-i-17)])
+       
+       #-EGRESOS:
+      egresos.por.estado[i,2] <- 0.10 *  ingresos.por.estado[i,2]
+    }
+    
+    #ESTADO 3
+    #Esta gente no paga prima ni recibe beneficios entonces no hay ni ingresos ni egresos
+    
+    #ESTADO 4
+    
+    #No hay ingresos
+    
+    #-Egresos: 
+    #No es necesario contar edades porque el egreso es el mismo para todos.
+    egresos.por.estado[i,4] <- 
+      info.año.i.anterior$conteos[4]*suma.asegurada4.ajustado
+    
+    #ESTADO 5
+    
+    #No hay ingresos
+    
+    #-Egresos: 
+    #No es necesario contar edades porque el egreso es el mismo para todos.
+    egresos.por.estado[i,5] <-  
+      info.año.i.anterior$conteos[5]*suma.asegurada5.ajustado
+    
+    #ESTADO 6
+    
+    #No hay ingresos
+    
+    #-Egresos: 
+    #Egresos de muertos del año pasado
+    egresos.por.estado[i,6] <- 
+      info.año.i.anterior$conteos[6]*suma.asegurada6.ajustado
+    
+    #si ya todos se murieron detenemos el ciclo for
+    if(cant.por.estado[i,6] == length(edades)){
+      break
+    }
+  }
+  
   cant.por.estado[, 6] <- cumsum(cant.por.estado[, 6])
+  ingresos <- as.list(rowSums(ingresos.por.estado))
+  egresos <- as.list(rowSums(egresos.por.estado))
   
-  return(cant.por.estado)
+  return(list(estados = cant.por.estado, 
+              ingresos = ingresos, 
+              egresos = egresos,
+              ingresos.estado = ingresos.por.estado,
+              egresos.estado = egresos.por.estado)
+         )
 }
+
 ```
 
+## Simulación
 ```{r}
 #Generemos 5000 pólizas al azar, según sexo y edad.
-
+set.seed(123)
 #genero aleatorio (0 = hombre, 1 = mujer)
 genero <- sample(c(0, 1), 5000, replace = TRUE)
-edades <- sample(18:65, 5000, replace = TRUE)
+edades <- sample(18:64, 5000, replace = TRUE)
 
 polizas <- data.frame(edades= edades, genero= genero) 
 hombres <- polizas[polizas$genero == 0, ]
 mujeres <- polizas[polizas$genero == 1, ]
 ```
 
+
+## Resultados
 ```{r}
-cant.simulaciones <- 100
+cant.simulaciones <- 5000
+suma.asegurada4 <- 10850000
+suma.asegurada5 <- 16570000
+suma.asegurada6 <- 1150000
 
-simulaciones <- list()
-
+simulaciones.h <- list()
+simulaciones.m <- list()
 
 for (i in 1:cant.simulaciones){
-  simulacion.h <- simulacion.hombres(hombres)
-  simulacion.m <- simulacion.mujeres(mujeres)
-  simulaciones[[i]] <- simulacion.h + simulacion.m
-  
+  simulaciones.h[[i]] <- simulacion.hombres(hombres, primas.hombres, suma.asegurada4, suma.asegurada5, suma.asegurada6)
+  simulaciones.m[[i]] <- simulacion.mujeres(mujeres, primas.mujeres, suma.asegurada4, suma.asegurada5, suma.asegurada6)
 }
-
-#Calculamos la esperanza
-suma_matrices <- Reduce("+", simulaciones)
-esperanza.estados <- suma_matrices / length(simulaciones)
 ```
 
-# Funciones auxiliares
 ```{r}
-contar.1a6 <- function(fila) {
-  fila.sin.na <- na.omit(fila)
-  return(list(conteos = conteos, indices = indices))
+#Calculamos la esperanza de los estados, por género. 
+suma.matrices.h <- matrix(0, nrow = 103, ncol = 6)
+suma.matrices.m <- matrix(0, nrow = 103, ncol = 6)
+
+for (i in 1:cant.simulaciones){
+  suma.matrices.h <- suma.matrices.h + simulaciones.h[[i]]$estados
+  suma.matrices.m <- suma.matrices.m + simulaciones.m[[i]]$estados
 }
+esperanza.estados.h <- suma.matrices.h / cant.simulaciones
+esperanza.estados.m <- suma.matrices.m / cant.simulaciones
+
 ```
+
+```{r}
+#Calculamos la esperanza de las pérdidas futuras, por género.
+perdidas.futuras.m <- list()
+perdidas.futuras.h <- list()
+
+for (i in 1:cant.simulaciones){
+  ingresos.m <- as.numeric(simulaciones.m[[i]]$ingresos)
+  egresos.m <- as.numeric(simulaciones.m[[i]]$egresos)
+  
+  ingresos.h <- as.numeric(simulaciones.h[[i]]$ingresos)
+  egresos.h <- as.numeric(simulaciones.h[[i]]$egresos)
+  
+  # Calcular el valor presente de ingresos y egresos
+  años <- 1:103  # Años correspondientes a los flujos
+
+  vp_ingresos.m <- ingresos.m / (1 + interes[años])^años
+  vp_egresos.m <- egresos.m / (1 + interes[años])^años
+  
+  vp_ingresos.h <- ingresos.h / (1 + interes[años])^años
+  vp_egresos.h <- egresos.h / (1 + interes[años])^años
+  
+  # Diferencia entre ingresos y egresos
+  vp_diferencia.m <- vp_egresos.m - vp_ingresos.m
+  vp_diferencia.h <- vp_egresos.h - vp_ingresos.h
+
+  # Suma total de la diferencia
+  perdidas.futuras.m[[i]] <- sum(vp_diferencia.m)
+  perdidas.futuras.h[[i]] <- sum(vp_diferencia.h)
+}
+esperanza.perdidas.m <- mean(unlist(perdidas.futuras.m))
+esperanza.perdidas.h <- mean(unlist(perdidas.futuras.h))
+
+cat('Valor presente de pérdida futura hombres (en miles de millones): \n')
+cat(esperanza.perdidas.h /1000000000)
+cat('\n')
+
+cat('Valor presente de pérdida futura mujeres (en miles de millones): \n')
+cat(esperanza.perdidas.m /1000000000)
+```
+
+
+
+
+
+
+
+
+
 
 
