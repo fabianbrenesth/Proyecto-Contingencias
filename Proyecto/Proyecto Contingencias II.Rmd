@@ -868,7 +868,7 @@ mujeres <- polizas[polizas$genero == 1, ]
 
 ## Resultados
 ```{r}
-cant.simulaciones <- 10
+cant.simulaciones <- 5000
 suma.asegurada4 <- 10850000
 suma.asegurada5 <- 16570000
 suma.asegurada6 <- 1150000
