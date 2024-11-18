@@ -311,7 +311,6 @@ donde:
 $$
 e^{Ut} = \sum_{n=0}^{\infty} \frac{(Ut)^n}{n!} = I + Ut + \frac{(Ut)^2}{2!} + \frac{(Ut)^3}{3!} + \cdots
 $$
-
 ```{r}
 library(expm) #importamos librería para la forma exponencial de la matriz
 
@@ -319,7 +318,7 @@ library(expm) #importamos librería para la forma exponencial de la matriz
 matrices.m <- list()
 matrices.h <- list()
 
-for (i in 1:120){
+for (i in 1:118){ 
     fuerzas.h <- U.H_matrix(i)
     fuerzas.m <- U.M_matrix(i)
     
@@ -327,54 +326,20 @@ for (i in 1:120){
     matrices.h[[i]] <- expm(fuerzas.h)
     matrices.m[[i]] <- expm(fuerzas.m)
     
-  }
-```
-
-
-```{r}
-# Verificar Nulos
-
-for (i in 1:120){
-    hh <- U.H_matrix(i)
-    diag(hh) <- 0
-    if (any(hh<0))
-      print(i)
+    #Normalizar las matrices por errores numéricos
+    matrices.h[[i]] <- t(apply(matrices.h[[i]], 1, function(x) x / sum(x)))
+    matrices.m[[i]] <- t(apply(matrices.m[[i]], 1, function(x) x / sum(x)))
 }
+
+# A partir de 120 no se puede vivir más
+matriz <- matrix(0, nrow = 6, ncol = 6)
+matriz[, 6] <- 1
+
+matrices.h[[119]] <- matriz
+matrices.m[[119]] <- matriz
 ```
 
 ```{r}
-# Verificar Nulos
-
-for (i in 1:120){
-    hh <- matrices.h[[i]]
-    if (any(rowSums(hh)!=1))
-      print(c(i, max(abs(rowSums(hh)-1))))
-}
-```
-
-```{r}
-# Verificar Nulos
-
-for (i in 1:120){
-    mm <- U.M_matrix(i)
-    diag(hh) <- 0
-    if (any(hh<0))
-      print(i)
-}
-```
-
-```{r}
-# Verificar Nulos
-
-for (i in 1:120){
-    mm <- matrices.m[[i]]
-    if (any(rowSums(mm)!=1))
-      print(c(i, max(abs(rowSums(mm)-1))))
-}
-```
-
-```{r}
-
 # Lista de probabilidades
 prob.h <- vector("list", 119)
 prob.m <- vector("list", 119)
@@ -385,7 +350,14 @@ for (i in 119:1){
   prob.h[[i]] <- vector("list", 120 - i)
   prob.m[[i]] <- vector("list", 120 - i)
   for (t in 1:120-i){
-    if (t == 1){
+    
+    if(i+t == 120){
+      #120 es edad máxima
+      matriz <- matrix(0, nrow = 6, ncol = 6)
+      matriz[, 6] <- 1
+      prob.h[[i]][[t]] <- matriz
+      prob.m[[i]][[t]] <- matriz
+    } else if (t == 1){
       prob.h[[i]][[t]] <- matrices.h[[i]]
       prob.m[[i]][[t]] <- matrices.m[[i]]
     } else if(t > 1) {
@@ -396,35 +368,7 @@ for (i in 119:1){
 }
 ```
 
-```{r}
-# Verificar errores
-
-for (i in 1:119){
-  errores <- c()
-  for(t in 1:length(prob.h[[i]])){
-    if (any(rowSums(prob.h[[i]][[t]])!=1)){
-      errores[t] <- max(abs(rowSums(prob.h[[i]][[t]])-1)) 
-    }
-  }
-  print(c(i,max(errores)))
-}
-```
-```{r}
-# Verificar errores
-
-for (i in 1:119){
-  errores <- c()
-  for(t in 1:length(prob.m[[i]])){
-    if (any(rowSums(prob.m[[i]][[t]])!=1)){
-      errores[t] <- max(abs(rowSums(prob.m[[i]][[t]])-1)) 
-    }
-  }
-  print(c(i,max(errores)))
-}
-```
-
 # Cálculo de prima
-
 ```{r}
 #Anualidades
 
@@ -922,10 +866,9 @@ hombres <- polizas[polizas$genero == 0, ]
 mujeres <- polizas[polizas$genero == 1, ]
 ```
 
-
 ## Resultados
 ```{r}
-cant.simulaciones <- 5000
+cant.simulaciones <- 10
 suma.asegurada4 <- 10850000
 suma.asegurada5 <- 16570000
 suma.asegurada6 <- 1150000
