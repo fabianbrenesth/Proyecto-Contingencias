@@ -994,6 +994,101 @@ cat('Valor presente de pérdida futura mujeres (en miles de millones): \n')
 cat(esperanza.perdidas.m /1000000000)
 ```
 
+# Graficos 
+
+```{r}
+library(ggplot2)
+
+# Gráfico de distribución de edades
+ggplot(polizas, aes(x = edades)) +
+  geom_histogram(binwidth = 3, fill = "seagreen", color = "black") +
+  labs(x = "Edad",  y = "Cantidad", 
+       title = "Distribución de Edades", 
+       caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+```
+
+```{r}
+# creamos una nueva columna donde se convitio (0,1) en (hombres,mujeres)
+polizas$genero.factor <- factor(polizas$genero, levels = c(0, 1), labels = c("Hombre", "Mujer"))
+
+# Creaamos un grafico de barras para ver la distribucion por cada genero
+ggplot(polizas, aes(x = genero.factor, fill = genero.factor)) +
+  geom_bar() +
+  labs(x = "Género", y = "Cantidad", 
+       title = "Distribución de Géneros", 
+       caption = "Fuente: elaboración propia") +
+  scale_fill_manual(name = "Género", 
+                    values = c("cornflowerblue", "lightcoral")) +
+  theme_minimal()
+
+```
+
+```{r}
+# realizamos un grafico de densidad con transparencia por edades
+ggplot(polizas, aes(x = edades, fill = as.factor(genero))) +
+  geom_density(alpha = 0.5) + 
+  labs(x = "Edad", y = "Densidad", 
+       title = "Distribución de Edades por Género", 
+       caption = "Fuente: elaboración propia") +
+  scale_fill_manual(name = "Género", values = c("#009ACD", "#FF3030"),
+                    labels = c("Hombre", "Mujer")) +
+  theme_minimal()
+
+```
+
+
+```{r}
+# realizamos u grafico con trasnparencia por edades
+ggplot(polizas, aes(x = edades, fill = as.factor(genero))) +
+  geom_histogram(binwidth = 5, color = "black", position = "identity", alpha = 0.5) +
+  labs(x = "Edad", 
+       y = "Cantidad", 
+       title = "Distribución de Edades por Género", 
+       caption = "Fuente: elaboración propia") +
+  scale_fill_manual(name = "Género", 
+                    values = c("#009ACD", "#FF3030"),
+                    labels = c("Hombre", "Mujer")) +
+  theme_minimal()
+
+```
+
+
+```{r}
+# partimos en intervalos de 5 en 5
+polizas$edad.grupo <- cut(polizas$edades, breaks = seq(18, 68, by = 5), right = FALSE)
+
+# Realiamos un grafico de barras apiladas donde se muestra la proporcion de cada genero
+ggplot(polizas, aes(x = edad.grupo, fill = as.factor(genero))) +
+  geom_bar(position = "fill") +
+  labs(x = "Grupo de Edad", 
+       y = "Proporción", 
+       title = "Proporción de Géneros por Grupo de Edad", 
+       caption = "Fuente: elaboración propia") +
+  scale_fill_manual(name = "Género", 
+                    values = c("limegreen", "lightcoral"),
+                    labels = c("Hombre", "Mujer")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+```{r}
+# 
+# Boxplot de edades por género
+ggplot(polizas, aes(x = as.factor(genero), y = edades, fill = as.factor(genero))) +
+  geom_boxplot(outlier.color = "red", outlier.shape = 16) +
+  labs(x = "Género", 
+       y = "Edad", 
+       title = "Distribución de Edades por Género (Boxplot)", 
+       caption = "Fuente: elaboración propia") +
+  scale_fill_manual(name = "Género", 
+                    values = c("green3", "coral2"),
+                    labels = c("Hombre", "Mujer")) +
+  theme_minimal()
+
+```
 
 
 
