@@ -853,7 +853,8 @@ simulacion.mujeres <- function(mujeres, primas.por.edad, suma.asegurada4, suma.a
 
 ```
 
-## Simulación
+## Simulación 1
+
 ```{r}
 #Generemos 5000 pólizas al azar, según sexo y edad.
 set.seed(123)
@@ -864,15 +865,15 @@ edades <- sample(18:64, 5000, replace = TRUE)
 polizas <- data.frame(edades= edades, genero= genero) 
 hombres <- polizas[polizas$genero == 0, ]
 mujeres <- polizas[polizas$genero == 1, ]
-```
 
-## Resultados
-```{r}
 cant.simulaciones <- 5000
 suma.asegurada4 <- 10850000
 suma.asegurada5 <- 16570000
 suma.asegurada6 <- 1150000
+```
 
+No es necesario correr este chunk, basta con abrir "simulaciones.RData"
+```{r, eval = FALSE}
 simulaciones.h <- list()
 simulaciones.m <- list()
 
@@ -881,6 +882,8 @@ for (i in 1:cant.simulaciones){
   simulaciones.m[[i]] <- simulacion.mujeres(mujeres, primas.mujeres, suma.asegurada4, suma.asegurada5, suma.asegurada6)
 }
 ```
+
+### Resultados
 
 ```{r}
 #Calculamos la esperanza de los estados, por género. 
@@ -893,6 +896,35 @@ for (i in 1:cant.simulaciones){
 }
 esperanza.estados.h <- suma.matrices.h / cant.simulaciones
 esperanza.estados.m <- suma.matrices.m / cant.simulaciones
+
+```
+
+
+```{r}
+#Calculamos la esperanza de los ingresos, por sexo
+suma.matrices.h <- matrix(0, nrow = 103, ncol = 6)
+suma.matrices.m <- matrix(0, nrow = 103, ncol = 6)
+
+for (i in 1:cant.simulaciones){
+  suma.matrices.h <- suma.matrices.h + simulaciones.h[[i]]$ingresos.estado
+  suma.matrices.m <- suma.matrices.m + simulaciones.m[[i]]$ingresos.estado
+}
+esperanza.ingresos.h <- suma.matrices.h / cant.simulaciones
+esperanza.ingresos.m <- suma.matrices.m / cant.simulaciones
+
+```
+
+```{r}
+#Calculamos la esperanza de los egresos, por sexo
+suma.matrices.h <- matrix(0, nrow = 103, ncol = 6)
+suma.matrices.m <- matrix(0, nrow = 103, ncol = 6)
+
+for (i in 1:cant.simulaciones){
+  suma.matrices.h <- suma.matrices.h + simulaciones.h[[i]]$egresos.estado
+  suma.matrices.m <- suma.matrices.m + simulaciones.m[[i]]$egresos.estado
+}
+esperanza.egresos.h <- suma.matrices.h / cant.simulaciones
+esperanza.egresos.m <- suma.matrices.m / cant.simulaciones
 
 ```
 
@@ -937,7 +969,109 @@ cat('Valor presente de pérdida futura mujeres (en miles de millones): \n')
 cat(esperanza.perdidas.m /1000000000)
 ```
 
-# Graficos 
+## Simulacion 2
+
+Veamos que pasa ahora si se toma el promedio de las tasas de la curva soberana
+```{r}
+interes2 <- c(0.05424,  # 1 años
+             0.06364,  # 2 años
+             0.07012,  # 3 años
+             0.07012 + (0.07868-0.07012)/2,  # 4 años
+             0.07868,  # 5 años 
+             0.07868 + (0.08378-0.07868)/2,# 6 años
+             0.08378,  # 7 años
+             0.08378 + (0.08796 -0.08378 )/3, # 8 años 
+             0.08378 + ((0.08796 - 0.08378)/3)*2, # 9 años
+             0.08796) # 10 años
+
+interes2 <- c(interes2, rep(0.08796, 120)) #Asumimos curva constante a partir de 10 años
+
+primas.hombres2 <- sapply(18:64, function(edad) prima.bruta(edad, prob.h, interes2, 0.03))
+
+primas.mujeres2 <- sapply(18:64, function(edad) prima.bruta(edad, prob.m, interes2, 0.03))
+
+```
+
+No es necesario correr este chunk, basta con abrir "simulaciones2.RData"
+```{r, eval= FALSE}
+for (i in 1:cant.simulaciones){
+  simulaciones.h.2[[i]] <- simulacion.hombres(hombres, primas.hombres2, suma.asegurada4, suma.asegurada5, suma.asegurada6)
+  simulaciones.m.2[[i]] <- simulacion.mujeres(mujeres, primas.mujeres2, suma.asegurada4, suma.asegurada5, suma.asegurada6)
+}
+```
+
+### Resultados simulación 2
+
+```{r}
+#Calculamos la esperanza de los ingresos, por sexo
+suma.matrices.h.2 <- matrix(0, nrow = 103, ncol = 6)
+suma.matrices.m.2 <- matrix(0, nrow = 103, ncol = 6)
+
+for (i in 1:cant.simulaciones){
+  suma.matrices.h <- suma.matrices.h + simulaciones.h.2[[i]]$ingresos.estado
+  suma.matrices.m <- suma.matrices.m + simulaciones.m.2[[i]]$ingresos.estado
+}
+esperanza.ingresos.h.2 <- suma.matrices.h / cant.simulaciones
+esperanza.ingresos.m.2 <- suma.matrices.m / cant.simulaciones
+
+```
+
+```{r}
+#Calculamos la esperanza de los egresos, por sexo
+suma.matrices.h <- matrix(0, nrow = 103, ncol = 6)
+suma.matrices.m <- matrix(0, nrow = 103, ncol = 6)
+
+for (i in 1:cant.simulaciones){
+  suma.matrices.h <- suma.matrices.h + simulaciones.h.2[[i]]$egresos.estado
+  suma.matrices.m <- suma.matrices.m + simulaciones.m.2[[i]]$egresos.estado
+}
+esperanza.egresos.h.2 <- suma.matrices.h / cant.simulaciones
+esperanza.egresos.m.2 <- suma.matrices.m / cant.simulaciones
+
+```
+
+```{r}
+#Calculamos la esperanza de las pérdidas futuras, por género.
+perdidas.futuras.m.2 <- list()
+perdidas.futuras.h.2 <- list()
+
+for (i in 1:cant.simulaciones){
+  ingresos.m <- as.numeric(simulaciones.m.2[[i]]$ingresos)
+  egresos.m <- as.numeric(simulaciones.m.2[[i]]$egresos)
+  
+  ingresos.h <- as.numeric(simulaciones.h.2[[i]]$ingresos)
+  egresos.h <- as.numeric(simulaciones.h.2[[i]]$egresos)
+  
+  # Calcular el valor presente de ingresos y egresos
+  años <- 0:102  # Años correspondientes a los flujos
+
+  # Calcular los valores presentes
+  vp_ingresos.m <- ingresos.m / (1 + c(0, interes2))[años + 1]^años
+  vp_egresos.m <- egresos.m / (1 + c(0, interes2))[años + 1]^años
+  
+  vp_ingresos.h <- ingresos.h / (1 + c(0, interes2))[años + 1]^años
+  vp_egresos.h <- egresos.h / (1 + c(0, interes2))[años + 1]^años
+  
+  # Diferencia entre ingresos y egresos
+  vp_diferencia.m <- vp_egresos.m - vp_ingresos.m
+  vp_diferencia.h <- vp_egresos.h - vp_ingresos.h
+
+  # Suma total de la diferencia
+  perdidas.futuras.m.2[[i]] <- sum(vp_diferencia.m)
+  perdidas.futuras.h.2[[i]] <- sum(vp_diferencia.h)
+}
+esperanza.perdidas.m.2 <- mean(unlist(perdidas.futuras.m.2))
+esperanza.perdidas.h.2 <- mean(unlist(perdidas.futuras.h.2))
+
+cat('Valor presente de pérdida futura hombres (en miles de millones): \n')
+cat(esperanza.perdidas.h.2 /1000000000)
+cat('\n')
+
+cat('Valor presente de pérdida futura mujeres (en miles de millones): \n')
+cat(esperanza.perdidas.m.2 /1000000000)
+```
+
+# Graficos Estadísticas
 
 ```{r}
 library(ggplot2)
@@ -1034,11 +1168,261 @@ ggplot(polizas, aes(x = as.factor(genero), y = edades, fill = as.factor(genero))
 ```
 
 
+# Gráficos Resultados
+
+## Resultados con última observación curva soberana
+
+```{r}
+#Gráfico del monto de las primas
+
+# Crear un data frame combinando los datos
+edad <- 18:64
+data <- data.frame(
+  edad = edad,
+  primas.hombres = primas.hombres,
+  primas.mujeres = primas.mujeres
+)
+
+# Transformar los datos a formato largo para ggplot
+data_long <- tidyr::pivot_longer(data, cols = c(primas.hombres, primas.mujeres), 
+                                 names_to = "Genero", 
+                                 values_to = "Prima")
+
+# Graficar
+ggplot(data_long, aes(x = edad, y = Prima/1e6, color = Genero)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = scales::comma) + # Escala con formato de miles
+  labs(
+    title = "Primas por edad",
+    x = "Edad (años)",
+    y = "Prima(millones)",
+    color = "Sexo",
+    caption = "Fuente: elaboración propia"
+  ) +
+  scale_color_manual(
+    values = c("primas.hombres" = "lightblue", "primas.mujeres" = "pink"),
+    labels = c("primas.hombres" = "Hombres", "primas.mujeres" = "Mujeres")
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+library(tidyr)
+library(scales)
+df.estados.m <- as.data.frame(esperanza.estados.m)
+df.estados.h <- as.data.frame(esperanza.estados.h)
+
+colnames(df.estados.m) <- paste0("Estado ", 1:ncol(df.estados.m))
+colnames(df.estados.h) <- paste0("Estado ", 1:ncol(df.estados.h))
+
+df.estados.m$x <- 1:nrow(df.estados.m)
+df.estados.h$x <- 1:nrow(df.estados.h)
+
+df.estados.m <- pivot_longer(df.estados.m, cols = -x, names_to = "serie", values_to = "valor")
+df.estados.h <- pivot_longer(df.estados.h, cols = -x, names_to = "serie", values_to = "valor")
+
+colores_personalizados <- c("Estado 1" = "#F8766D", "Estado 2" = "#00BA38", 
+                            "Estado 3" = "#619CFF", "Estado 4" = "#F564E3", 
+                            "Estado 5" = "#B79F00", "Estado 6" = "#00BFC4")
+
+# Primer gráfico
+ggplot(df.estados.m, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Estados") +
+  labs(title = "Evolución asegurados (Mujeres)", x = "Año", y = "Cantidad de asegurados",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+# Segundo gráfico
+ggplot(df.estados.h, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Estados") +
+  labs(title = "Evolución asegurados (Hombres)", x = "Año", y = "Cantidad de asegurados",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+```
+
+```{r}
+
+df.ingresos.m <- as.data.frame(esperanza.ingresos.m)
+df.ingresos.h <- as.data.frame(esperanza.ingresos.h)
+
+colnames(df.ingresos.m) <- paste0("Estado ", 1:ncol(df.ingresos.m))
+colnames(df.ingresos.h) <- paste0("Estado ", 1:ncol(df.ingresos.h))
+
+df.ingresos.m$x <- 1:nrow(df.ingresos.m)
+df.ingresos.h$x <- 1:nrow(df.ingresos.h)
+
+df.ingresos.m <- df.ingresos.m[, -c(3,4,5,6)]
+df.ingresos.h <- df.ingresos.h[, -c(3,4,5,6)]
+
+df.ingresos.m <- pivot_longer(df.ingresos.m, cols = -x, names_to = "serie", values_to = "valor")
+df.ingresos.h <- pivot_longer(df.ingresos.h, cols = -x, names_to = "serie", values_to = "valor")
+
+# Primer gráfico
+ggplot(df.ingresos.m, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Ingresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución ingresos (Mujeres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+# Segundo gráfico
+ggplot(df.ingresos.h, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Ingresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución ingresos (Hombres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+```
+
+```{r}
+df.egresos.m <- as.data.frame(esperanza.egresos.m)
+df.egresos.h <- as.data.frame(esperanza.egresos.h)
+
+colnames(df.egresos.m) <- paste0("Estado ", 1:ncol(df.egresos.m))
+colnames(df.egresos.h) <- paste0("Estado ", 1:ncol(df.egresos.h))
+
+df.egresos.m$x <- 1:nrow(df.egresos.m)
+df.egresos.h$x <- 1:nrow(df.egresos.h)
+
+df.egresos.m <- df.egresos.m[, -c(3)]
+df.egresos.h <- df.egresos.h[, -c(3)]
+
+df.egresos.m <- pivot_longer(df.egresos.m, cols = -x, names_to = "serie", values_to = "valor")
+df.egresos.h <- pivot_longer(df.egresos.h, cols = -x, names_to = "serie", values_to = "valor")
 
 
+# Primer gráfico
+ggplot(df.egresos.m, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Egresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución egresos en miles de millones (Mujeres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+# Segundo gráfico
+ggplot(df.egresos.h, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Egresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución egresos en miles de millones (Hombres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+```
+
+## Resultados con promedio curva soberana
+
+```{r}
+#Gráfico del monto de las primas
+
+# Crear un data frame combinando los datos
+edad <- 18:64
+data <- data.frame(
+  edad = edad,
+  primas.hombres = primas.hombres2,
+  primas.mujeres = primas.mujeres2
+)
+
+# Transformar los datos a formato largo para ggplot
+data_long <- tidyr::pivot_longer(data, cols = c(primas.hombres, primas.mujeres), 
+                                 names_to = "Genero", 
+                                 values_to = "Prima")
+
+# Graficar
+ggplot(data_long, aes(x = edad, y = Prima/1e6, color = Genero)) +
+  geom_line(size = 1.2) +
+  scale_y_continuous(labels = scales::comma) + # Escala con formato de miles
+  labs(
+    title = "Primas por edad",
+    x = "Edad (años)",
+    y = "Prima(millones)",
+    color = "Sexo",
+    caption = "Fuente: elaboración propia"
+  ) +
+  scale_color_manual(
+    values = c("primas.hombres" = "lightblue", "primas.mujeres" = "pink"),
+    labels = c("primas.hombres" = "Hombres", "primas.mujeres" = "Mujeres")
+  ) +
+  theme_minimal()
+
+```
+
+```{r}
+
+df.ingresos.m <- as.data.frame(esperanza.ingresos.m.2)
+df.ingresos.h <- as.data.frame(esperanza.ingresos.h.2)
+
+colnames(df.ingresos.m) <- paste0("Estado ", 1:ncol(df.ingresos.m))
+colnames(df.ingresos.h) <- paste0("Estado ", 1:ncol(df.ingresos.h))
+
+df.ingresos.m$x <- 1:nrow(df.ingresos.m)
+df.ingresos.h$x <- 1:nrow(df.ingresos.h)
+
+df.ingresos.m <- df.ingresos.m[, -c(3,4,5,6)]
+df.ingresos.h <- df.ingresos.h[, -c(3,4,5,6)]
+
+df.ingresos.m <- pivot_longer(df.ingresos.m, cols = -x, names_to = "serie", values_to = "valor")
+df.ingresos.h <- pivot_longer(df.ingresos.h, cols = -x, names_to = "serie", values_to = "valor")
+
+# Primer gráfico
+ggplot(df.ingresos.m, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Ingresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución ingresos (Mujeres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+
+# Segundo gráfico
+ggplot(df.ingresos.h, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Ingresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución ingresos (Hombres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+```
+
+```{r}
+df.egresos.m <- as.data.frame(esperanza.egresos.m.2)
+df.egresos.h <- as.data.frame(esperanza.egresos.h.2)
+
+colnames(df.egresos.m) <- paste0("Estado ", 1:ncol(df.egresos.m))
+colnames(df.egresos.h) <- paste0("Estado ", 1:ncol(df.egresos.h))
+
+df.egresos.m$x <- 1:nrow(df.egresos.m)
+df.egresos.h$x <- 1:nrow(df.egresos.h)
+
+df.egresos.m <- df.egresos.m[, -c(3)]
+df.egresos.h <- df.egresos.h[, -c(3)]
+
+df.egresos.m <- pivot_longer(df.egresos.m, cols = -x, names_to = "serie", values_to = "valor")
+df.egresos.h <- pivot_longer(df.egresos.h, cols = -x, names_to = "serie", values_to = "valor")
 
 
+# Primer gráfico
+ggplot(df.egresos.m, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Egresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución egresos en miles de millones (Mujeres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
 
-
+# Segundo gráfico
+ggplot(df.egresos.h, aes(x = x, y = valor, color = serie)) +
+  geom_line(size = 1) +
+  scale_color_manual(values = colores_personalizados, 
+                     name = "Egresos") +
+  scale_y_continuous(labels = function(x) x / 1e9) +
+  labs(title = "Evolución egresos en miles de millones (Hombres)", x = "Año", y = "Monto (miles de millones)",caption = "Fuente: elaboración propia") +
+  theme_minimal()
+```
 
 
